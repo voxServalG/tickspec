@@ -1,0 +1,11 @@
+.hy/
+.opencode/
+.codex/
+.mcp.json
+codelint.json
+doclint.json
+docs-gardener.json
+node_modules/
+dist/
+coverage/
+*.log

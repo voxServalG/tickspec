@@ -1,0 +1,15 @@
+# language: tickspec
+# name: bad_missing_kind
+
+inputs:
+  - x #number
+
+output:
+  o: [-1, 1]
+
+scheduled_checks:
+  - name: c
+    every: 1d
+    emit:
+      - [x < 0, 0]
+      - [x >= 0, 1]

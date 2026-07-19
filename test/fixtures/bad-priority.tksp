@@ -1,0 +1,21 @@
+# language: tickspec
+# kind: strategy
+# name: bad_priority
+
+signals:
+  - s1
+
+combine:
+  - score: clamp(s1, -1, 1)
+
+triggers:
+  - name: t1
+    when: score >= 0.5
+    emit:
+      - [true, hold]
+    priority: 0
+  - name: t2
+    when: score <= 0.8
+    emit:
+      - [true, {action: {QQQ: {buy: 10}}}]
+    priority: 0

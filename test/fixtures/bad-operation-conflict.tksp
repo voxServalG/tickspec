@@ -1,0 +1,16 @@
+# language: tickspec
+# kind: strategy
+# name: bad_op_conflict
+
+signals:
+  - s1
+
+combine:
+  - score: clamp(s1, -1, 1)
+
+scheduled_checks:
+  - name: daily
+    every: 1d
+    emit:
+      - [score > 0, {target: {QQQ: 0.15}, action: {QQQ: {buy: 20}}}]
+      - [score <= 0, hold]

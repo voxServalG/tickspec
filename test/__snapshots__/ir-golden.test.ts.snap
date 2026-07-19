@@ -1,0 +1,610 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ir-golden > emits IR for qqq_strategy.tksp via toIR (bypass validate) and matches snapshot 1`] = `
+{
+  "combine": [
+    {
+      "expr": {
+        "args": [
+          {
+            "left": {
+              "left": {
+                "left": {
+                  "type": "number",
+                  "value": 0.7,
+                },
+                "op": "*",
+                "right": {
+                  "name": "qqq_signal",
+                  "type": "ref",
+                },
+                "type": "binary",
+              },
+              "op": "+",
+              "right": {
+                "left": {
+                  "type": "number",
+                  "value": 0.2,
+                },
+                "op": "*",
+                "right": {
+                  "name": "rate_signal",
+                  "type": "ref",
+                },
+                "type": "binary",
+              },
+              "type": "binary",
+            },
+            "op": "+",
+            "right": {
+              "left": {
+                "type": "number",
+                "value": 0.1,
+              },
+              "op": "*",
+              "right": {
+                "name": "liquidity_signal",
+                "type": "ref",
+              },
+              "type": "binary",
+            },
+            "type": "binary",
+          },
+          {
+            "op": "-",
+            "operand": {
+              "type": "number",
+              "value": 1,
+            },
+            "type": "unary",
+          },
+          {
+            "type": "number",
+            "value": 1,
+          },
+        ],
+        "name": "clamp",
+        "type": "call",
+      },
+      "name": "score",
+    },
+  ],
+  "kind": "strategy",
+  "language": "tickspec",
+  "name": "qqq_strategy",
+  "schedulers": [
+    {
+      "branches": [
+        {
+          "emit": {
+            "action": {
+              "SPY": {
+                "buy": undefined,
+                "sell": 20,
+              },
+            },
+            "kind": "mixed",
+            "target": {
+              "QQQ": 0,
+            },
+          },
+          "when": {
+            "left": {
+              "name": "score",
+              "type": "ref",
+            },
+            "op": "<",
+            "right": {
+              "op": "-",
+              "operand": {
+                "type": "number",
+                "value": 0.7,
+              },
+              "type": "unary",
+            },
+            "type": "binary",
+          },
+        },
+        {
+          "emit": {
+            "action": {
+              "VIX": {
+                "buy": 5,
+                "sell": undefined,
+              },
+            },
+            "kind": "mixed",
+            "target": {
+              "QQQ": 0.05,
+            },
+          },
+          "when": {
+            "left": {
+              "left": {
+                "name": "score",
+                "type": "ref",
+              },
+              "op": ">=",
+              "right": {
+                "op": "-",
+                "operand": {
+                  "type": "number",
+                  "value": 0.7,
+                },
+                "type": "unary",
+              },
+              "type": "binary",
+            },
+            "op": "and",
+            "right": {
+              "left": {
+                "name": "score",
+                "type": "ref",
+              },
+              "op": "<",
+              "right": {
+                "op": "-",
+                "operand": {
+                  "type": "number",
+                  "value": 0.3,
+                },
+                "type": "unary",
+              },
+              "type": "binary",
+            },
+            "type": "binary",
+          },
+        },
+        {
+          "emit": {
+            "kind": "hold",
+          },
+          "when": {
+            "left": {
+              "left": {
+                "name": "score",
+                "type": "ref",
+              },
+              "op": ">=",
+              "right": {
+                "op": "-",
+                "operand": {
+                  "type": "number",
+                  "value": 0.3,
+                },
+                "type": "unary",
+              },
+              "type": "binary",
+            },
+            "op": "and",
+            "right": {
+              "left": {
+                "name": "score",
+                "type": "ref",
+              },
+              "op": "<=",
+              "right": {
+                "type": "number",
+                "value": 0.3,
+              },
+              "type": "binary",
+            },
+            "type": "binary",
+          },
+        },
+        {
+          "emit": {
+            "action": {
+              "IWM": {
+                "buy": 15,
+                "sell": undefined,
+              },
+            },
+            "kind": "mixed",
+            "target": {
+              "QQQ": 0.1,
+            },
+          },
+          "when": {
+            "left": {
+              "left": {
+                "name": "score",
+                "type": "ref",
+              },
+              "op": ">",
+              "right": {
+                "type": "number",
+                "value": 0.3,
+              },
+              "type": "binary",
+            },
+            "op": "and",
+            "right": {
+              "left": {
+                "name": "score",
+                "type": "ref",
+              },
+              "op": "<=",
+              "right": {
+                "type": "number",
+                "value": 0.7,
+              },
+              "type": "binary",
+            },
+            "type": "binary",
+          },
+        },
+        {
+          "emit": {
+            "action": {
+              "TQQQ": {
+                "buy": 30,
+                "sell": undefined,
+              },
+            },
+            "kind": "mixed",
+            "target": {
+              "QQQ": 0.15,
+            },
+          },
+          "when": {
+            "left": {
+              "name": "score",
+              "type": "ref",
+            },
+            "op": ">",
+            "right": {
+              "type": "number",
+              "value": 0.7,
+            },
+            "type": "binary",
+          },
+        },
+      ],
+      "every": "1d",
+      "name": "daily_decision",
+    },
+  ],
+  "signals": [
+    "qqq_signal",
+    "rate_signal",
+    "liquidity_signal",
+  ],
+  "triggers": [
+    {
+      "branches": [
+        {
+          "emit": {
+            "actions": {
+              "QQQ": {
+                "buy": undefined,
+                "sell": 50,
+              },
+            },
+            "kind": "action",
+          },
+          "when": {
+            "type": "bool",
+            "value": true,
+          },
+        },
+      ],
+      "kind": "level",
+      "name": "panic_sell",
+      "priority": 0,
+      "when": {
+        "left": {
+          "name": "score",
+          "type": "ref",
+        },
+        "op": "<=",
+        "right": {
+          "op": "-",
+          "operand": {
+            "type": "number",
+            "value": 0.8,
+          },
+          "type": "unary",
+        },
+        "type": "binary",
+      },
+    },
+    {
+      "branches": [
+        {
+          "emit": {
+            "actions": {
+              "QQQ": {
+                "buy": 30,
+                "sell": undefined,
+              },
+            },
+            "kind": "action",
+          },
+          "when": {
+            "type": "bool",
+            "value": true,
+          },
+        },
+      ],
+      "kind": "level",
+      "name": "fast_rally",
+      "priority": 0,
+      "when": {
+        "left": {
+          "name": "score",
+          "type": "ref",
+        },
+        "op": ">=",
+        "right": {
+          "type": "number",
+          "value": 0.8,
+        },
+        "type": "binary",
+      },
+    },
+    {
+      "branches": [
+        {
+          "emit": {
+            "actions": {
+              "QQQ": {
+                "buy": undefined,
+                "sell": 10,
+              },
+            },
+            "kind": "action",
+          },
+          "when": {
+            "type": "bool",
+            "value": true,
+          },
+        },
+      ],
+      "kind": "edge",
+      "name": "score_cross_down",
+      "priority": 1,
+      "when": {
+        "args": [
+          {
+            "op": "-",
+            "operand": {
+              "name": "score",
+              "type": "ref",
+            },
+            "type": "unary",
+          },
+          {
+            "type": "number",
+            "value": 0,
+          },
+        ],
+        "name": "cross_over",
+        "type": "call",
+      },
+    },
+    {
+      "branches": [
+        {
+          "emit": {
+            "actions": {
+              "QQQ": {
+                "buy": 10,
+                "sell": undefined,
+              },
+            },
+            "kind": "action",
+          },
+          "when": {
+            "type": "bool",
+            "value": true,
+          },
+        },
+      ],
+      "kind": "edge",
+      "name": "score_cross_up",
+      "priority": 1,
+      "when": {
+        "args": [
+          {
+            "name": "score",
+            "type": "ref",
+          },
+          {
+            "type": "number",
+            "value": 0,
+          },
+        ],
+        "name": "cross_over",
+        "type": "call",
+      },
+    },
+  ],
+  "version": 1,
+}
+`;
+
+exports[`ir-golden > emits a valid IR for qqq_signal.tksp with language/version/kind 1`] = `
+{
+  "inputs": [
+    {
+      "name": "qqq_drawdown_3mo",
+      "type": "number",
+    },
+    {
+      "name": "qqq_return_1d",
+      "type": "number",
+    },
+  ],
+  "kind": "signal",
+  "language": "tickspec",
+  "name": "qqq_signal",
+  "output": {
+    "range": [
+      -1,
+      1,
+    ],
+  },
+  "schedulers": [
+    {
+      "branches": [
+        {
+          "emit": 0,
+          "when": {
+            "left": {
+              "name": "qqq_drawdown_3mo",
+              "type": "ref",
+            },
+            "op": "<",
+            "right": {
+              "type": "number",
+              "value": 0.05,
+            },
+            "type": "binary",
+          },
+        },
+        {
+          "emit": 0.3,
+          "when": {
+            "left": {
+              "left": {
+                "name": "qqq_drawdown_3mo",
+                "type": "ref",
+              },
+              "op": ">=",
+              "right": {
+                "type": "number",
+                "value": 0.05,
+              },
+              "type": "binary",
+            },
+            "op": "and",
+            "right": {
+              "left": {
+                "name": "qqq_drawdown_3mo",
+                "type": "ref",
+              },
+              "op": "<",
+              "right": {
+                "type": "number",
+                "value": 0.1,
+              },
+              "type": "binary",
+            },
+            "type": "binary",
+          },
+        },
+        {
+          "emit": 0.7,
+          "when": {
+            "left": {
+              "left": {
+                "name": "qqq_drawdown_3mo",
+                "type": "ref",
+              },
+              "op": ">=",
+              "right": {
+                "type": "number",
+                "value": 0.1,
+              },
+              "type": "binary",
+            },
+            "op": "and",
+            "right": {
+              "left": {
+                "name": "qqq_drawdown_3mo",
+                "type": "ref",
+              },
+              "op": "<",
+              "right": {
+                "type": "number",
+                "value": 0.15,
+              },
+              "type": "binary",
+            },
+            "type": "binary",
+          },
+        },
+        {
+          "emit": 1,
+          "when": {
+            "left": {
+              "name": "qqq_drawdown_3mo",
+              "type": "ref",
+            },
+            "op": ">=",
+            "right": {
+              "type": "number",
+              "value": 0.15,
+            },
+            "type": "binary",
+          },
+        },
+      ],
+      "every": "1d",
+      "name": "daily_check",
+    },
+  ],
+  "triggers": [
+    {
+      "branches": [
+        {
+          "emit": 0.8,
+          "when": {
+            "type": "bool",
+            "value": true,
+          },
+        },
+      ],
+      "kind": "level",
+      "name": "one_day_fast_drop",
+      "priority": 1,
+      "when": {
+        "left": {
+          "name": "qqq_return_1d",
+          "type": "ref",
+        },
+        "op": "<=",
+        "right": {
+          "op": "-",
+          "operand": {
+            "type": "number",
+            "value": 0.03,
+          },
+          "type": "unary",
+        },
+        "type": "binary",
+      },
+    },
+    {
+      "branches": [
+        {
+          "emit": 0.6,
+          "when": {
+            "type": "bool",
+            "value": true,
+          },
+        },
+      ],
+      "kind": "edge",
+      "name": "drawdown_cross_5",
+      "priority": 0,
+      "when": {
+        "args": [
+          {
+            "name": "qqq_drawdown_3mo",
+            "type": "ref",
+          },
+          {
+            "type": "number",
+            "value": 0.05,
+          },
+        ],
+        "name": "cross_over",
+        "type": "call",
+      },
+    },
+  ],
+  "version": 1,
+}
+`;

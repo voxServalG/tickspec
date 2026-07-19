@@ -1,0 +1,30 @@
+{
+  "project": {
+    "baseBranch": "dev",
+    "codeExt": ".tksp,.ts",
+    "codeDirs": [
+      "src"
+    ],
+    "docsDir": "docs"
+  },
+  "codelint": {
+    "lintDirs": [
+      "src"
+    ],
+    "maxLines": 500
+  },
+  "doclint": {
+    "maxLines": 200
+  },
+  "docsGardener": {
+    "catalogs": {}
+  },
+  "ci": {
+    "commands": [
+      "npm ci",
+      "npm run typecheck",
+      "npm run lint",
+      "npm test"
+    ]
+  }
+}
