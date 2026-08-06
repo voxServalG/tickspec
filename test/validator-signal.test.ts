@@ -68,4 +68,157 @@ describe('validator-signal', () => {
     const diags = validate(document);
     expect(diags.getDiagnostics().some((d) => d.code === 'OUTPUT_RANGE_NARROW')).toBe(true);
   });
+
+  describe('KR1: scalar math functions', () => {
+    const functions = ['abs', 'sign', 'sqrt', 'log', 'exp'];
+    for (const fn of functions) {
+      it(`accepts ${fn}(x) with numeric argument`, () => {
+        const src = [
+          '# language: tickspec',
+          '# kind: signal',
+          '# name: test_' + fn,
+          'inputs:',
+          '  - x #number',
+          'output:',
+          '  o: [-1,1]',
+          'scheduled_checks:',
+          '  - name: c',
+          '    every: 1d',
+          '    emit:',
+          `      - [${fn}(x) > 0, 0.5]`,
+          '',
+        ].join('\n');
+        const { document } = parseTksp(src);
+        expect(document).toBeDefined();
+        if (!document) throw new Error('parse failed');
+        const diags = validate(document);
+        expect(diags.errors()).toEqual([]);
+      });
+
+      it(`rejects ${fn}(true) with non-numeric argument`, () => {
+        const src = [
+          '# language: tickspec',
+          '# kind: signal',
+          '# name: test_' + fn + '_bad',
+          'inputs:',
+          '  - x #number',
+          'output:',
+          '  o: [-1,1]',
+          'triggers:',
+          '  - name: t',
+          `    when: ${fn}(true)`,
+          '    emit:',
+          '      - [true, 0.5]',
+          '    priority: 0',
+          '',
+        ].join('\n');
+        const { document } = parseTksp(src);
+        expect(document).toBeDefined();
+        if (!document) throw new Error('parse failed');
+        const diags = validate(document);
+        expect(diags.errors().some((d) => d.code === 'TYPE_MISMATCH')).toBe(true);
+      });
+
+      it(`rejects ${fn}(x, y) with wrong arity`, () => {
+        const src = [
+          '# language: tickspec',
+          '# kind: signal',
+          '# name: test_' + fn + '_arity',
+          'inputs:',
+          '  - x #number',
+          '  - y #number',
+          'output:',
+          '  o: [-1,1]',
+          'triggers:',
+          '  - name: t',
+          `    when: ${fn}(x, y)`,
+          '    emit:',
+          '      - [true, 0.5]',
+          '    priority: 0',
+          '',
+        ].join('\n');
+        const { document } = parseTksp(src);
+        expect(document).toBeDefined();
+        if (!document) throw new Error('parse failed');
+        const diags = validate(document);
+        expect(diags.errors().some((d) => d.code === 'ARITY')).toBe(true);
+      });
+    }
+
+    const binaryFunctions = ['min', 'max'];
+    for (const fn of binaryFunctions) {
+      it(`accepts ${fn}(x, y) with numeric arguments`, () => {
+        const src = [
+          '# language: tickspec',
+          '# kind: signal',
+          '# name: test_' + fn,
+          'inputs:',
+          '  - x #number',
+          '  - y #number',
+          'output:',
+          '  o: [-1,1]',
+          'triggers:',
+          '  - name: t',
+          `    when: ${fn}(x, y) > 0`,
+          '    emit:',
+          '      - [true, 0.5]',
+          '    priority: 0',
+          '',
+        ].join('\n');
+        const { document } = parseTksp(src);
+        expect(document).toBeDefined();
+        if (!document) throw new Error('parse failed');
+        const diags = validate(document);
+        expect(diags.errors()).toEqual([]);
+      });
+
+      it(`rejects ${fn}(x) with wrong arity`, () => {
+        const src = [
+          '# language: tickspec',
+          '# kind: signal',
+          '# name: test_' + fn + '_arity',
+          'inputs:',
+          '  - x #number',
+          'output:',
+          '  o: [-1,1]',
+          'triggers:',
+          '  - name: t',
+          `    when: ${fn}(x)`,
+          '    emit:',
+          '      - [true, 0.5]',
+          '    priority: 0',
+          '',
+        ].join('\n');
+        const { document } = parseTksp(src);
+        expect(document).toBeDefined();
+        if (!document) throw new Error('parse failed');
+        const diags = validate(document);
+        expect(diags.errors().some((d) => d.code === 'ARITY')).toBe(true);
+      });
+
+      it(`rejects ${fn}(true, false) with non-numeric arguments`, () => {
+        const src = [
+          '# language: tickspec',
+          '# kind: signal',
+          '# name: test_' + fn + '_type',
+          'inputs:',
+          '  - x #number',
+          'output:',
+          '  o: [-1,1]',
+          'triggers:',
+          '  - name: t',
+          `    when: ${fn}(true, false)`,
+          '    emit:',
+          '      - [true, 0.5]',
+          '    priority: 0',
+          '',
+        ].join('\n');
+        const { document } = parseTksp(src);
+        expect(document).toBeDefined();
+        if (!document) throw new Error('parse failed');
+        const diags = validate(document);
+        expect(diags.errors().some((d) => d.code === 'TYPE_MISMATCH')).toBe(true);
+      });
+    }
+  });
 });

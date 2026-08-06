@@ -39,6 +39,9 @@ export function inferExprType(expr: Expr, ctx: RefCtx): ValType {
     return inferBinType(expr.op, expr.left, expr.right, ctx);
   }
   if (expr.name === 'cross_over' || expr.name === 'clamp') return 'number';
+  if (expr.name === 'abs' || expr.name === 'sign' || expr.name === 'sqrt' ||
+      expr.name === 'log' || expr.name === 'exp' || expr.name === 'min' ||
+      expr.name === 'max') return 'number';
   return 'unknown';
 }
 
@@ -223,6 +226,26 @@ function checkExpr(
             if (inferExprType(a, ctx) !== 'number') { bad = true; break; }
           }
           if (bad) diags.error('TYPE_MISMATCH', 'clamp arguments must be numeric', e.span, filename);
+        }
+      } else if (e.name === 'abs' || e.name === 'sign' || e.name === 'sqrt' ||
+                 e.name === 'log' || e.name === 'exp') {
+        if (e.args.length !== 1) {
+          diags.error('ARITY', `${e.name} requires exactly 1 argument`, e.span, filename);
+        } else {
+          const a0 = e.args[0];
+          if (a0 && inferExprType(a0, ctx) !== 'number') {
+            diags.error('TYPE_MISMATCH', `${e.name} argument must be numeric`, e.span, filename);
+          }
+        }
+      } else if (e.name === 'min' || e.name === 'max') {
+        if (e.args.length !== 2) {
+          diags.error('ARITY', `${e.name} requires exactly 2 arguments`, e.span, filename);
+        } else {
+          const a0 = e.args[0];
+          const a1 = e.args[1];
+          if (a0 && a1 && (inferExprType(a0, ctx) !== 'number' || inferExprType(a1, ctx) !== 'number')) {
+            diags.error('TYPE_MISMATCH', `${e.name} arguments must be numeric`, e.span, filename);
+          }
         }
       } else {
         diags.error('UNKNOWN_FUNCTION', `unknown function "${e.name}"`, e.span, filename);
