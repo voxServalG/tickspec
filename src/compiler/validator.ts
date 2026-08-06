@@ -9,7 +9,7 @@ import type {
 } from './types.js';
 import { DiagnosticCollector } from './errors.js';
 
-type ValType = 'number' | 'bool' | 'unknown';
+type ValType = 'number' | 'bool' | 'series' | 'unknown';
 type RefCtx = Record<string, ValType>;
 
 export function walkExpr(expr: Expr, fn: (e: Expr) => void): void {
@@ -31,7 +31,9 @@ export function inferExprType(expr: Expr, ctx: RefCtx): ValType {
   if (expr.type === 'unary') {
     if (expr.op === '-') {
       const t = inferExprType(expr.operand, ctx);
-      return t === 'bool' ? 'unknown' : t;
+      if (t === 'bool') return 'unknown';
+      if (t === 'series') return 'series';
+      return t;
     }
     return inferExprType(expr.operand, ctx) === 'bool' ? 'bool' : 'unknown';
   }
@@ -39,9 +41,23 @@ export function inferExprType(expr: Expr, ctx: RefCtx): ValType {
     return inferBinType(expr.op, expr.left, expr.right, ctx);
   }
   if (expr.name === 'cross_over' || expr.name === 'clamp') return 'number';
+  // KR1: scalar math functions - return series if any arg is series
   if (expr.name === 'abs' || expr.name === 'sign' || expr.name === 'sqrt' ||
       expr.name === 'log' || expr.name === 'exp' || expr.name === 'min' ||
-      expr.name === 'max') return 'number';
+      expr.name === 'max') {
+    for (const a of expr.args) {
+      if (inferExprType(a, ctx) === 'series') return 'series';
+    }
+    return 'number';
+  }
+  // KR2: time series primitives
+  if (expr.name === 'lag' || expr.name === 'change' || expr.name === 'pct_change' ||
+      expr.name === 'rolling_mean' || expr.name === 'rolling_std' ||
+      expr.name === 'rolling_min' || expr.name === 'rolling_max') return 'series';
+  // KR3: semantic technical indicators
+  if (expr.name === 'ema' || expr.name === 'rsi' || expr.name === 'macd' ||
+      expr.name === 'bollinger_upper' || expr.name === 'bollinger_lower' ||
+      expr.name === 'atr') return 'series';
   return 'unknown';
 }
 
@@ -63,10 +79,16 @@ function inferBinType(op: BinOp, l: Expr, r: Expr, ctx: RefCtx): ValType {
   const rt = inferExprType(r, ctx);
   if (isArith(op)) {
     if (lt === 'number' && rt === 'number') return 'number';
+    if (lt === 'series' && rt === 'series') return 'series';
+    if (lt === 'series' && rt === 'number') return 'series';
+    if (lt === 'number' && rt === 'series') return 'series';
     return 'unknown';
   }
   if (isCmp(op)) {
     if (lt === 'number' && rt === 'number') return 'bool';
+    if (lt === 'series' && rt === 'series') return 'bool';
+    if (lt === 'series' && rt === 'number') return 'bool';
+    if (lt === 'number' && rt === 'series') return 'bool';
     return 'unknown';
   }
   if (isEq(op)) {
@@ -181,8 +203,8 @@ function checkExpr(
     if (e.type === 'unary') {
       const t = inferExprType(e.operand, ctx);
       if (e.op === '-') {
-        if (t === 'bool') diags.error('TYPE_MISMATCH', 'unary "-" requires numeric operand', e.span, filename);
-      } else if (t === 'number') {
+        if (t === 'bool') diags.error('TYPE_MISMATCH', 'unary "-" requires numeric or series operand', e.span, filename);
+      } else if (t === 'number' || t === 'series') {
         diags.error('TYPE_MISMATCH', '"!" requires bool operand', e.span, filename);
       }
       return;
@@ -192,8 +214,8 @@ function checkExpr(
       const rt = inferExprType(e.right, ctx);
       const op = e.op;
       if (isArith(op) || isCmp(op)) {
-        if (lt !== 'number' || rt !== 'number') {
-          diags.error('TYPE_MISMATCH', `"${op}" requires numeric operands`, e.span, filename);
+        if (lt === 'bool' || rt === 'bool' || lt === 'unknown' || rt === 'unknown') {
+          diags.error('TYPE_MISMATCH', `"${op}" requires numeric or series operands`, e.span, filename);
         }
       } else if (isEq(op)) {
         if (lt !== 'unknown' && rt !== 'unknown' && lt !== rt) {
@@ -213,8 +235,15 @@ function checkExpr(
         } else {
           const a0 = e.args[0];
           const a1 = e.args[1];
-          if (a0 && a1 && (inferExprType(a0, ctx) !== 'number' || inferExprType(a1, ctx) !== 'number')) {
-            diags.error('TYPE_MISMATCH', 'cross_over arguments must be numeric', e.span, filename);
+          if (a0 && a1) {
+            const t0 = inferExprType(a0, ctx);
+            const t1 = inferExprType(a1, ctx);
+            if (t0 !== 'number' && t0 !== 'series') {
+              diags.error('TYPE_MISMATCH', 'cross_over first argument must be number or series', e.span, filename);
+            }
+            if (t1 !== 'number') {
+              diags.error('TYPE_MISMATCH', 'cross_over second argument must be number', e.span, filename);
+            }
           }
         }
       } else if (e.name === 'clamp') {
@@ -223,9 +252,10 @@ function checkExpr(
         } else {
           let bad = false;
           for (const a of e.args) {
-            if (inferExprType(a, ctx) !== 'number') { bad = true; break; }
+            const t = inferExprType(a, ctx);
+            if (t !== 'number' && t !== 'series') { bad = true; break; }
           }
-          if (bad) diags.error('TYPE_MISMATCH', 'clamp arguments must be numeric', e.span, filename);
+          if (bad) diags.error('TYPE_MISMATCH', 'clamp arguments must be number or series', e.span, filename);
         }
       } else if (e.name === 'abs' || e.name === 'sign' || e.name === 'sqrt' ||
                  e.name === 'log' || e.name === 'exp') {
@@ -233,8 +263,11 @@ function checkExpr(
           diags.error('ARITY', `${e.name} requires exactly 1 argument`, e.span, filename);
         } else {
           const a0 = e.args[0];
-          if (a0 && inferExprType(a0, ctx) !== 'number') {
-            diags.error('TYPE_MISMATCH', `${e.name} argument must be numeric`, e.span, filename);
+          if (a0) {
+            const t = inferExprType(a0, ctx);
+            if (t !== 'number' && t !== 'series') {
+              diags.error('TYPE_MISMATCH', `${e.name} argument must be number or series`, e.span, filename);
+            }
           }
         }
       } else if (e.name === 'min' || e.name === 'max') {
@@ -243,8 +276,129 @@ function checkExpr(
         } else {
           const a0 = e.args[0];
           const a1 = e.args[1];
-          if (a0 && a1 && (inferExprType(a0, ctx) !== 'number' || inferExprType(a1, ctx) !== 'number')) {
-            diags.error('TYPE_MISMATCH', `${e.name} arguments must be numeric`, e.span, filename);
+          if (a0 && a1) {
+            const t0 = inferExprType(a0, ctx);
+            const t1 = inferExprType(a1, ctx);
+            if ((t0 !== 'number' && t0 !== 'series') || (t1 !== 'number' && t1 !== 'series')) {
+              diags.error('TYPE_MISMATCH', `${e.name} arguments must be number or series`, e.span, filename);
+            }
+          }
+        }
+      // KR2: time series primitives (series, number) → series
+      } else if (e.name === 'lag' || e.name === 'change' || e.name === 'pct_change' ||
+                 e.name === 'rolling_mean' || e.name === 'rolling_std' ||
+                 e.name === 'rolling_min' || e.name === 'rolling_max') {
+        if (e.args.length !== 2) {
+          diags.error('ARITY', `${e.name} requires exactly 2 arguments`, e.span, filename);
+        } else {
+          const a0 = e.args[0];
+          const a1 = e.args[1];
+          if (a0 && a1) {
+            const t0 = inferExprType(a0, ctx);
+            const t1 = inferExprType(a1, ctx);
+            if (t0 !== 'series') {
+              diags.error('TYPE_MISMATCH', `${e.name} first argument must be series`, e.span, filename);
+            }
+            if (t1 !== 'number') {
+              diags.error('TYPE_MISMATCH', `${e.name} second argument must be number`, e.span, filename);
+            }
+          }
+        }
+      // KR3: ema, rsi (series, number) → series
+      } else if (e.name === 'ema' || e.name === 'rsi') {
+        if (e.args.length !== 2) {
+          diags.error('ARITY', `${e.name} requires exactly 2 arguments`, e.span, filename);
+        } else {
+          const a0 = e.args[0];
+          const a1 = e.args[1];
+          if (a0 && a1) {
+            const t0 = inferExprType(a0, ctx);
+            const t1 = inferExprType(a1, ctx);
+            if (t0 !== 'series') {
+              diags.error('TYPE_MISMATCH', `${e.name} first argument must be series`, e.span, filename);
+            }
+            if (t1 !== 'number') {
+              diags.error('TYPE_MISMATCH', `${e.name} second argument must be number`, e.span, filename);
+            }
+          }
+        }
+      // KR3: bollinger_upper, bollinger_lower (series, number, number) → series
+      } else if (e.name === 'bollinger_upper' || e.name === 'bollinger_lower') {
+        if (e.args.length !== 3) {
+          diags.error('ARITY', `${e.name} requires exactly 3 arguments`, e.span, filename);
+        } else {
+          const a0 = e.args[0];
+          const a1 = e.args[1];
+          const a2 = e.args[2];
+          if (a0 && a1 && a2) {
+            const t0 = inferExprType(a0, ctx);
+            const t1 = inferExprType(a1, ctx);
+            const t2 = inferExprType(a2, ctx);
+            if (t0 !== 'series') {
+              diags.error('TYPE_MISMATCH', `${e.name} first argument must be series`, e.span, filename);
+            }
+            if (t1 !== 'number') {
+              diags.error('TYPE_MISMATCH', `${e.name} second argument must be number`, e.span, filename);
+            }
+            if (t2 !== 'number') {
+              diags.error('TYPE_MISMATCH', `${e.name} third argument must be number`, e.span, filename);
+            }
+          }
+        }
+      // KR3: macd (series, number, number, number) → series
+      } else if (e.name === 'macd') {
+        if (e.args.length !== 4) {
+          diags.error('ARITY', 'macd requires exactly 4 arguments', e.span, filename);
+        } else {
+          const a0 = e.args[0];
+          const a1 = e.args[1];
+          const a2 = e.args[2];
+          const a3 = e.args[3];
+          if (a0 && a1 && a2 && a3) {
+            const t0 = inferExprType(a0, ctx);
+            const t1 = inferExprType(a1, ctx);
+            const t2 = inferExprType(a2, ctx);
+            const t3 = inferExprType(a3, ctx);
+            if (t0 !== 'series') {
+              diags.error('TYPE_MISMATCH', 'macd first argument must be series', e.span, filename);
+            }
+            if (t1 !== 'number') {
+              diags.error('TYPE_MISMATCH', 'macd second argument must be number', e.span, filename);
+            }
+            if (t2 !== 'number') {
+              diags.error('TYPE_MISMATCH', 'macd third argument must be number', e.span, filename);
+            }
+            if (t3 !== 'number') {
+              diags.error('TYPE_MISMATCH', 'macd fourth argument must be number', e.span, filename);
+            }
+          }
+        }
+      // KR3: atr (series, series, series, number) → series
+      } else if (e.name === 'atr') {
+        if (e.args.length !== 4) {
+          diags.error('ARITY', 'atr requires exactly 4 arguments', e.span, filename);
+        } else {
+          const a0 = e.args[0];
+          const a1 = e.args[1];
+          const a2 = e.args[2];
+          const a3 = e.args[3];
+          if (a0 && a1 && a2 && a3) {
+            const t0 = inferExprType(a0, ctx);
+            const t1 = inferExprType(a1, ctx);
+            const t2 = inferExprType(a2, ctx);
+            const t3 = inferExprType(a3, ctx);
+            if (t0 !== 'series') {
+              diags.error('TYPE_MISMATCH', 'atr first argument must be series (high)', e.span, filename);
+            }
+            if (t1 !== 'series') {
+              diags.error('TYPE_MISMATCH', 'atr second argument must be series (low)', e.span, filename);
+            }
+            if (t2 !== 'series') {
+              diags.error('TYPE_MISMATCH', 'atr third argument must be series (close)', e.span, filename);
+            }
+            if (t3 !== 'number') {
+              diags.error('TYPE_MISMATCH', 'atr fourth argument must be number (period)', e.span, filename);
+            }
           }
         }
       } else {
@@ -363,7 +517,7 @@ function collectRefs(expr: Expr, set: Set<string>): void {
 
 function validateSignal(doc: ParsedSignal, diags: DiagnosticCollector, filename?: string): void {
   const ctx: RefCtx = {};
-  for (const inp of doc.inputs) ctx[inp.name] = inp.type === 'bool' ? 'bool' : 'number';
+  for (const inp of doc.inputs) ctx[inp.name] = inp.type === 'bool' ? 'bool' : 'series';
   checkDuplicates(doc.inputs, diags, 'DUP_INPUT', 'input name', filename);
 
   const lo = doc.output.range[0];
