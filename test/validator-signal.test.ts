@@ -195,6 +195,30 @@ describe('validator-signal', () => {
         const diags = validate(document);
         expect(diags.errors().some((d) => d.code === 'ARITY')).toBe(true);
       });
+
+      it(`rejects ${fn}(true, false) with non-numeric arguments`, () => {
+        const src = [
+          '# language: tickspec',
+          '# kind: signal',
+          '# name: test_' + fn + '_type',
+          'inputs:',
+          '  - x #number',
+          'output:',
+          '  o: [-1,1]',
+          'triggers:',
+          '  - name: t',
+          `    when: ${fn}(true, false)`,
+          '    emit:',
+          '      - [true, 0.5]',
+          '    priority: 0',
+          '',
+        ].join('\n');
+        const { document } = parseTksp(src);
+        expect(document).toBeDefined();
+        if (!document) throw new Error('parse failed');
+        const diags = validate(document);
+        expect(diags.errors().some((d) => d.code === 'TYPE_MISMATCH')).toBe(true);
+      });
     }
   });
 });
