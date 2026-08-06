@@ -29,18 +29,73 @@ tickspec 是一份语言规约与 TypeScript 语言处理器，用 `.tksp` 文�
 # name: my_signal
 ```
 
-### 因子系统
+### 类型系统
 
-因子由外部因子库计算，`.tksp` 只声明消费哪些因子。四种类型：
+两种基础类型：
 
 | 类型 | 说明 | 可比较 |
 |------|------|--------|
-| `number` | 浮点数 | 大小比较 |
+| `number` | 标量（当前 bar 的单一值） | 大小比较 |
 | `bool` | 布尔值 | 逻辑运算 |
-| `enum` | 无序列举 | 仅 `==` / `!=` |
-| `ordinal` | 有序分类 | 大小比较 |
 
-类型以行内注释标注：`- factor_name #number`
+因子类型以行内注释标注：`- factor_name #number`
+
+时间序列函数（如 `lag`、`rolling_mean`）输入和输出均为 `series` 类型，表示多期数据。标量函数（如 `abs`、`min`）输入和输出均为 `number`。
+
+### 表达式
+
+条件和组合公式使用标量表达式，支持：
+
+- 算术：`+` `-` `*` `/`
+- 比较：`<` `<=` `>` `>=` `==` `!=`
+- 逻辑：`and` `or` `!`
+- 括号：`()`
+- 字面量：数字（`0.05`）、布尔（`true` / `false`）
+- 因子/信号引用：`drawdown_3mo`、`qqq_signal`、`score`
+
+#### 内置函数
+
+**通用**
+
+| 函数 | 签名 | 说明 |
+|------|------|------|
+| `cross_over` | `(number, number) → number` | 边沿检测：值从下方向上穿越阈值时返回真 |
+| `clamp` | `(number, number, number) → number` | 限制结果区间：`clamp(expr, lo, hi)` |
+
+**KR1：标量数学函数（number → number）**
+
+| 函数 | 签名 | 说明 |
+|------|------|------|
+| `abs` | `number → number` | 绝对值 |
+| `sign` | `number → number` | 符号函数（-1/0/+1） |
+| `sqrt` | `number → number` | 平方根 |
+| `log` | `number → number` | 自然对数 |
+| `exp` | `number → number` | 指数函数 |
+| `min` | `(number, number) → number` | 取较小值 |
+| `max` | `(number, number) → number` | 取较大值 |
+
+**KR2：时间序列原语（series → series）**
+
+| 函数 | 签名 | 说明 |
+|------|------|------|
+| `lag` | `(series, n) → series` | n 期前的值 |
+| `change` | `(series, n) → series` | n 期变化量：`x - x[n]` |
+| `pct_change` | `(series, n) → series` | n 期变化率：`x/x[n] - 1` |
+| `rolling_mean` | `(series, n) → series` | n 期滚动均值 |
+| `rolling_std` | `(series, n) → series` | n 期滚动标准差 |
+| `rolling_min` | `(series, n) → series` | n 期滚动最小值 |
+| `rolling_max` | `(series, n) → series` | n 期滚动最大值 |
+
+**KR3：语义技术指标（series → series）**
+
+| 函数 | 签名 | 说明 |
+|------|------|------|
+| `ema` | `(series, n) → series` | 指数移动均线 |
+| `rsi` | `(series, n) → series` | 相对强弱指标 |
+| `macd` | `(series, fast, slow, sig) → series` | MACD |
+| `bollinger_upper` | `(series, n, k) → series` | 布林带上轨 |
+| `bollinger_lower` | `(series, n, k) → series` | 布林带下轨 |
+| `atr` | `(high, low, close, n) → series` | 平均真实波幅 |
 
 ---
 
@@ -53,6 +108,8 @@ inputs:
   - drawdown_3mo  #number
   - return_1d     #number
 ```
+
+因子值由外部系统提供，格式不固定。价格、技术指标、基本面数据、另类数据——任何统计量都可以作为因子。执行层负责按 signal 的 `inputs` 声明按名匹配、按时间对齐。tickspec 不规定因子的计算方式、来源或存储格式。
 
 ### output — 输出范围
 
